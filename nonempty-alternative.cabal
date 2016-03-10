@@ -1,5 +1,5 @@
 name:                nonempty-alternative
-version:             0.1.0
+version:             0.2.0
 synopsis:            NonEmpty for Alternative types
 description:         Please see README.md
 homepage:            http://github.com/guaraqe/nonempty-alternative#readme
