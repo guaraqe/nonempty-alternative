@@ -9,7 +9,9 @@ module Data.NonEmpty
        , head
        , tail
        , flattenLeft
-       , flattenRight ) where
+       , flattenRight
+       , moveHeadLeft
+       , moveHeadRight ) where
 
 import Prelude hiding (head, tail)
 import Data.Data
@@ -77,3 +79,13 @@ head (x :| _) = x
 -- | Tail is a total function for `NonEmpty`.
 tail :: NonEmpty f a -> f a
 tail (_ :| xs) = xs
+
+-- | Moves the head to the tail from the left.
+moveHeadLeft :: (Alternative f, Alternative g)
+             => NonEmpty f (g a) -> NonEmpty f (g a)
+moveHeadLeft = (empty :|) . flattenLeft
+
+-- | Moves the head to the tail from the right.
+moveHeadRight :: (Alternative f, Alternative g)
+             => NonEmpty f (g a) -> NonEmpty f (g a)
+moveHeadRight = (empty :|) . flattenRight
