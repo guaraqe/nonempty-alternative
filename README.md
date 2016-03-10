@@ -7,3 +7,4 @@ This generalization allows the use of non-empty `List`, `ZipList`, `Vector`, etc
 ## TODO
 
 - Check the if the instance laws are satisfied. I'm not sure about Monad and Applicative.
+- Look at the condition for compatibility between the instances of `f` and `NonEmpty f`.
