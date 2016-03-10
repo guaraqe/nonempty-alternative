@@ -43,7 +43,6 @@ flattenLeft :: Alternative f => NonEmpty f a -> f a
 flattenLeft (x :| xs) = pure x <|> xs
 
 -- | Flattens a `NonEmpty` from the right.
-flattenLeft :: Alternative f => NonEmpty f a -> f a
 flattenRight :: Alternative f => NonEmpty f a -> f a
 flattenRight (x :| xs) = xs <|> pure x
 
