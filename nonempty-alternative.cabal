@@ -1,7 +1,8 @@
 name:                nonempty-alternative
-version:             0.3.0
+version:             0.4.0
 synopsis:            NonEmpty for Alternative types
-description:         Please see README.md
+description:         This package extends @NonEmpty@ from @semigroups@ for
+                     arbitrary @Alternative@ types.
 homepage:            http://github.com/guaraqe/nonempty-alternative#readme
 license:             BSD3
 license-file:        LICENSE
