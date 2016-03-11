@@ -74,13 +74,6 @@ instance (Alternative f, Monad f) => Monad (NonEmptyL f) where
                   where (y :< ys) = f x
                         zs = xs >>= flattenL . f
 
-apL :: (Alternative f, Monad f)
-    => NonEmptyL f (a -> b) -> NonEmptyL f a -> NonEmptyL f b
-apL fs xs =
-  do x <- xs
-     f <- fs
-     return (f x)
-
 ----------------------------------------------------------------------
 
 instance Alternative f => Comonad (NonEmptyL f) where
