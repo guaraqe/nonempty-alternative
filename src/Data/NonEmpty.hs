@@ -10,6 +10,7 @@ module Data.NonEmpty
        , tailL
        , flattenL
        , joinL
+       , budgeL
        -- * The type of right non-empty alternatives
        , NonEmptyR (..)
        -- * Basic functions for `NonEmptyR`
@@ -17,6 +18,7 @@ module Data.NonEmpty
        , initR
        , flattenR
        , joinR
+       , budgeR
        ) where
 
 import Prelude hiding (head, tail)
@@ -139,6 +141,9 @@ joinL :: (Alternative f, Monad f)
       => NonEmptyL f (NonEmptyL f a) -> NonEmptyL f a
 joinL ((x :< xs) :< ys) = x :< (xs <|> (ys >>= flattenL))
 
+budgeL :: (Alternative f, Alternative g)
+       => NonEmptyL f (g a) -> NonEmptyL f (g a)
+budgeL = (empty :<) . flattenL
 
 lastR :: NonEmptyR f a -> a
 lastR (_ :> x) = x
@@ -152,3 +157,7 @@ flattenR (xs :> x) = xs <|> pure x
 joinR :: (Alternative f, Monad f)
       => NonEmptyR f (NonEmptyR f a) -> NonEmptyR f a
 joinR (ys :> (xs :> x)) = ((ys >>= flattenR) <|> xs) :> x
+
+budgeR :: (Alternative f, Alternative g)
+       => NonEmptyR f (g a) -> NonEmptyR f (g a)
+budgeR = (:> empty) . flattenR
