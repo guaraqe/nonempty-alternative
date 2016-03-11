@@ -3,15 +3,21 @@
 
 module Data.NonEmpty
        (
-       -- * The type of non-empty alternatives
-         NonEmpty (..)
-       -- * Basic functions
-       , head
-       , tail
-       , flattenLeft
-       , flattenRight
-       , moveHeadLeft
-       , moveHeadRight ) where
+       -- * The type of left non-empty alternatives
+         NonEmptyL (..)
+       -- * Basic functions for `NonEmptyL`
+       , headL
+       , tailL
+       , flattenL
+       , joinL
+       -- * The type of right non-empty alternatives
+       , NonEmptyR (..)
+       -- * Basic functions for `NonEmptyR`
+       , lastR
+       , initR
+       , flattenR
+       , joinR
+       ) where
 
 import Prelude hiding (head, tail)
 import Data.Data
@@ -20,72 +26,136 @@ import GHC.Generics
 import Data.Foldable
 import Data.Semigroup
 import Control.Applicative
+import Control.Comonad
 
 ----------------------------------------------------------------------
 
--- | NonEmpty is naturally extended from `List` to any `Alternative`
--- type. See the source for the instance definitions.
-data NonEmpty f a = a :| f a
+-- | NonEmptyL is naturally extended from `List` to any `Alternative`
+-- type in two different ways. They are differentiated by their
+-- instances.
+-- The `L`eft one is well suited for `cons` structures.
+data NonEmptyL f a = a :< f a
   deriving (Show, Eq, Ord,Read, Data, Typeable, Generic, Generic1)
 
-infixr 5 :|
+infixr 5 :<
 
-instance Functor f => Functor (NonEmpty f) where
+-- | The `R`ight one is well suited for `snoc` structures.
+data NonEmptyR f a = f a :> a
+  deriving (Show, Eq, Ord,Read, Data, Typeable, Generic, Generic1)
 
-  fmap f (x :| xs) = (f x) :| (fmap f xs)
+infixl 5 :>
 
-instance Alternative f => Applicative (NonEmpty f) where
+----------------------------------------------------------------------
 
-  pure x = x :| empty
+instance Functor f => Functor (NonEmptyL f) where
+  fmap f (x :< xs) = (f x) :< (f <$> xs)
 
-  (f :| fs) <*> (x :| xs) = (f x) :| (fs <*> xs)
+instance Functor f => Functor (NonEmptyR f) where
+  fmap f (xs :> x) = (f <$> xs) :> (f x)
 
--- | Flattens a `NonEmpty` from the left.
-flattenLeft :: Alternative f => NonEmpty f a -> f a
-flattenLeft (x :| xs) = pure x <|> xs
+----------------------------------------------------------------------
 
--- | Flattens a `NonEmpty` from the right.
-flattenRight :: Alternative f => NonEmpty f a -> f a
-flattenRight (x :| xs) = xs <|> pure x
+instance Alternative f => Applicative (NonEmptyL f) where
+  pure x = x :< empty
 
-instance (Alternative f, Monad f) => Monad (NonEmpty f) where
+  (f :< fs) <*> (x :< xs) = (f x) :< (   (pure f <*> xs    )
+                                     <|> (fs     <*> (pure x <|> xs)))
 
-  (x :| xs) >>= f = y :| (ys <|> zs)
-     where y :| ys = f x
-           zs = xs >>= flattenLeft . f
+instance Alternative f => Applicative (NonEmptyR f) where
+  pure x = empty :> x
 
-instance Foldable f => Foldable (NonEmpty f) where
+  (fs :> f) <*> (xs :> x) = (   (fs     <*> (xs <|> pure x) )
+                            <|> (pure f <*> xs    ) ) :> (f x)
 
-  foldr f z (x :| xs) = f x (foldr f z xs)
-  foldr' f z (x :| xs) = f x (foldr' f z xs)
-  foldr1 f (x :| xs) = foldr f x xs
-  foldl f z (x :| xs) = foldl f (f z x) xs
-  foldl' f z (x :| xs) = foldl' f (f z x) xs
-  foldl1 f (x :| xs) = foldl f x xs
+----------------------------------------------------------------------
 
-instance (Alternative f, Traversable f) => Traversable (NonEmpty f) where
+instance (Alternative f, Monad f) => Monad (NonEmptyL f) where
+  (x :< xs) >>= f = y :< (ys <|> zs)
+                  where (y :< ys) = f x
+                        zs = xs >>= flattenL . f
 
-  traverse f (x :| xs) = (:|) <$> f x
+apL :: (Alternative f, Monad f)
+    => NonEmptyL f (a -> b) -> NonEmptyL f a -> NonEmptyL f b
+apL fs xs =
+  do x <- xs
+     f <- fs
+     return (f x)
+
+----------------------------------------------------------------------
+
+instance Alternative f => Comonad (NonEmptyL f) where
+  extract = headL
+  duplicate (x :< xs) = (x :< xs) :< (fmap (:< empty) xs)
+
+instance Alternative f => Comonad (NonEmptyR f) where
+  extract = lastR
+  duplicate (xs :> x) = (fmap (empty :>) xs) :> (xs :> x)
+
+----------------------------------------------------------------------
+
+instance Foldable f => Foldable (NonEmptyL f) where
+  foldr f z (x :< xs) = f x (foldr f z xs)
+  foldr' f z (x :< xs) = f x (foldr' f z xs)
+  foldr1 f (x :< xs) = if null xs
+                          then x
+                          else f x (foldr1 f xs)
+  foldl f z (x :< xs) = foldl f (f z x) xs
+  foldl' f z (x :< xs) = foldl' f (f z x) xs
+  foldl1 f (x :< xs) = foldl f x xs
+
+instance Foldable f => Foldable (NonEmptyR f) where
+  foldr f z (xs :> x) = foldr f (f x z) xs
+  foldr' f z (xs :> x) = foldr' f (f x z) xs
+  foldr1 f (xs :> x) = foldr f x xs
+  foldl f z (xs :> x) = f (foldl f z xs) x
+  foldl' f z (xs :> x) = f (foldl' f z xs) x
+  foldl1 f (xs :> x) = if null xs
+                          then x
+                          else f (foldl1 f xs) x
+
+----------------------------------------------------------------------
+
+instance (Functor f, Traversable f) => Traversable (NonEmptyL f) where
+  traverse f (x :< xs) = (:<) <$> f x
                               <*> traverse f xs
 
-instance Alternative f => Semigroup (NonEmpty f a) where
+instance (Functor f, Traversable f) => Traversable (NonEmptyR f) where
+  traverse f (xs :> x) = (:>) <$> traverse f xs
+                              <*> f x
 
-  (x :| xs) <> (y :| ys) = x :| (xs <|> pure y <|> ys)
+----------------------------------------------------------------------
 
--- | Head is a total function for `NonEmpty`.
-head :: NonEmpty f a -> a
-head (x :| _) = x
+instance Alternative f => Semigroup (NonEmptyL f a) where
+  (x :< xs) <> (y :< ys) = x :< (xs <|> pure y <|> ys)
 
--- | Tail is a total function for `NonEmpty`.
-tail :: NonEmpty f a -> f a
-tail (_ :| xs) = xs
+instance Alternative f => Semigroup (NonEmptyR f a) where
+  (xs :> x) <> (ys :> y) = (xs <|> pure x <|> ys) :> y
 
--- | Moves the head to the tail from the left.
-moveHeadLeft :: (Alternative f, Alternative g)
-             => NonEmpty f (g a) -> NonEmpty f (g a)
-moveHeadLeft = (empty :|) . flattenLeft
+----------------------------------------------------------------------
 
--- | Moves the head to the tail from the right.
-moveHeadRight :: (Alternative f, Alternative g)
-             => NonEmpty f (g a) -> NonEmpty f (g a)
-moveHeadRight = (empty :|) . flattenRight
+headL :: NonEmptyL f a -> a
+headL (x :< _) = x
+
+tailL :: NonEmptyL f a -> f a
+tailL (_ :< xs) = xs
+
+flattenL :: Alternative f => NonEmptyL f a -> f a
+flattenL (x :< xs) = pure x <|> xs
+
+joinL :: (Alternative f, Monad f)
+      => NonEmptyL f (NonEmptyL f a) -> NonEmptyL f a
+joinL ((x :< xs) :< ys) = x :< (xs <|> (ys >>= flattenL))
+
+
+lastR :: NonEmptyR f a -> a
+lastR (_ :> x) = x
+
+initR :: NonEmptyR f a -> f a
+initR (xs :> _) = xs
+
+flattenR :: Alternative f => NonEmptyR f a -> f a
+flattenR (xs :> x) = xs <|> pure x
+
+joinR :: (Alternative f, Monad f)
+      => NonEmptyR f (NonEmptyR f a) -> NonEmptyR f a
+joinR (ys :> (xs :> x)) = ((ys >>= flattenR) <|> xs) :> x
