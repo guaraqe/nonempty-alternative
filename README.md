@@ -1,21 +1,23 @@
 # nonempty-alternative
 
-Non-empty lists from `semigroups` can be naturally extended to an
-`Alternative` interface since it contains the `empty` element. Many
-instances arise naturally from this interface, like:
+This package extends `NonEmpty` from `semigroups` to arbitrary
+`Alternative` types. The method is the same as for lists, by
+separating an element from the rest.
 
-- `Applicative`
-- `Monad`
-- `Comonad`
+There are two natural ways to merge an element `x` to the rest of the
+structure `xs`. The first gives rise to `NonEmptyL`:
 
-The instances have the goal of being classes morphisms between
-different representation of the same structure. This probably depends
-on the structure.
+    flattenL :: NonEmptyL f a -> f a
+    flattenL (x :<: xs) = pure x <|> xs
 
-This generalization allows the use of non-empty `List`, `ZipList`,
-`Vector`, etc...
+The second gives rise to `NonEmptyR`:
 
-This module contains both `Left` and `Right` variants of `NonEmpty`.
+    flattenR :: NonEmptyR f a -> f a
+    flattenR (xs :>: x) = xs <|> pure x
+
+The instances are made so that `flattenL` gives a type class morphism
+between `NonEmptyL List` and `List`, and `flattenR` gives the same for
+`NonEmptyR RList` and `RList` from the package `rlist`.
 
 ## TODO
 
